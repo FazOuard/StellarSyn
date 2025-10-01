@@ -1,0 +1,168 @@
+.sidebar-overlay {
+  position: fixed;
+  top: 0;
+  left: 0;
+  width: 100%;
+  height: 100%;
+  background: rgba(0,0,0,0.7);
+  z-index: 998;
+  opacity: 0;
+  visibility: hidden;
+  transition: all 0.3s;
+}
+
+.sidebar-overlay.active {
+  opacity: 1;
+  visibility: visible;
+}
+
+.sidebar {
+  position: fixed;
+  top: 0;
+  right: -500px;
+  width: 480px;
+  height: 100vh;
+  background: transparent;
+  z-index: 999;
+  transition: right 0.4s ease;
+  overflow-y: auto;
+  box-shadow: -5px 0 30px rgba(0,0,0,0.8);
+}
+
+.sidebar.open {
+  right: 0;
+}
+
+.sidebar::-webkit-scrollbar {
+  width: 8px;
+}
+
+.sidebar::-webkit-scrollbar-track {
+  background: rgba(0,0,0,0.2);
+}
+
+.sidebar::-webkit-scrollbar-thumb {
+  background: rgba(255,255,255,0.2);
+  border-radius: 4px;
+}
+
+.sidebar-header {
+  display: flex;
+  justify-content: space-between;
+  align-items: center;
+  padding: 30px;
+  border-bottom: 1px solid rgba(255,255,255,0.1);
+}
+
+.sidebar-header h2 {
+  font-size: 18px;
+  letter-spacing: 3px;
+  font-weight: bold;
+}
+
+.close-btn {
+  background: transparent;
+  border: 2px solid #fff;
+  color: #fff;
+  width: 40px;
+  height: 40px;
+  border-radius: 50%;
+  cursor: pointer;
+  font-size: 20px;
+  transition: all 0.3s;
+}
+
+.close-btn:hover {
+  background: #fff;
+  color: #000;
+  transform: rotate(90deg);
+}
+
+.sidebar-content {
+  padding: 30px;
+}
+
+.planet-visual {
+  width: 100%;
+  height: 250px;
+  margin-bottom: 30px;
+  border-radius: 10px;
+  overflow: hidden;
+}
+
+.planet-image {
+  width: 100%;
+  height: 100%;
+  object-fit: cover;
+}
+
+.data-section {
+  margin-bottom: 35px;
+  padding-bottom: 25px;
+  border-bottom: 1px solid rgba(255,255,255,0.1);
+}
+
+.data-section h3 {
+  font-size: 13px;
+  letter-spacing: 2px;
+  margin-bottom: 20px;
+  color: #8ab4f8;
+}
+
+.data-grid {
+  display: flex;
+  flex-direction: column;
+  gap: 15px;
+}
+
+.data-item {
+  display: flex;
+  justify-content: space-between;
+  align-items: center;
+  padding: 12px 0;
+}
+
+.data-label {
+  font-size: 12px;
+  color: #999;
+  letter-spacing: 1px;
+}
+
+.data-value {
+  font-size: 13px;
+  font-weight: bold;
+  color: #fff;
+}
+
+.habitability-score {
+  margin-top: 30px;
+}
+
+.habitability-score h3 {
+  font-size: 13px;
+  letter-spacing: 2px;
+  margin-bottom: 15px;
+  color: #8ab4f8;
+}
+
+.progress-bar {
+  width: 100%;
+  height: 12px;
+  background: rgba(255,255,255,0.1);
+  border-radius: 6px;
+  overflow: hidden;
+  margin-bottom: 10px;
+}
+
+.progress-fill {
+  height: 100%;
+  background: linear-gradient(90deg, #4CAF50 0%, #8BC34A 100%);
+  border-radius: 6px;
+  transition: width 0.5s ease;
+}
+
+.progress-label {
+  font-size: 11px;
+  color: #999;
+  text-align: center;
+}
