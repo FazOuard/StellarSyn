@@ -1,1 +1,21 @@
-**/env/
+# Dossiers Python compilés
+__pycache__/
+*.pyc
+*.pyo
+
+# Environnements virtuels
+myvenv/
+myenv/
+.venv/
+.env
+
+# IDE
+.vscode/
+.idea/
+
+# Logs et fichiers temporaires
+*.log
+
+# Bases de données locales
+*.db
+*.sqlite3
