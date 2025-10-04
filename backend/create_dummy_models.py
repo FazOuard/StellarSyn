@@ -101,6 +101,9 @@ def train_and_save_model(file, destination):
     # Sauvegarde du modèle
     joblib.dump(stacking_clf, f"models/{destination}/model.joblib")
     print(f"💾 Modèle sauvegardé dans models/{destination}/model.joblib")
+    # Après le split et le scaling
+    joblib.dump(X_test_sc, f"models/{destination}/X_test_sc.joblib")
+    joblib.dump(y_test, f"models/{destination}/y_test.joblib")
 
 
 # -------------------- MAIN --------------------

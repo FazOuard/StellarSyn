@@ -1,5 +1,6 @@
-import { useState } from "react";
-import { ArrowLeft, Loader2, Sparkles, Upload, CheckCircle, XCircle, AlertCircle, TrendingUp, BarChart3, PieChart } from "lucide-react";
+import { useState, useEffect } from "react";
+import { ArrowLeft, Loader2, Sparkles, Upload, CheckCircle, XCircle, AlertCircle, TrendingUp, BarChart3 } from "lucide-react";
+import ShapExplain from "./ShapExplain"; 
 
 const Classifier = () => {
   const [selectedFile, setSelectedFile] = useState(null);
@@ -7,8 +8,12 @@ const Classifier = () => {
   const [stats, setStats] = useState(null);
   const [notification, setNotification] = useState(null);
   const [destination, setDestination] = useState("auto");
+  const [rocImageUrl, setRocImageUrl] = useState(null);
+  const [isLoadingRoc, setIsLoadingRoc] = useState(false);
+  const [prImageUrl, setPrImageUrl] = useState(null);
+  const [isLoadingPr, setIsLoadingPr] = useState(false);
 
-  // Classification labels mapping per destination
+  // Classification labels mapping (votre mapping d’origine)
   const classificationSchemes = {
     kepler: {
       0: { name: "False Positive", icon: XCircle, color: "text-red-500", bg: "bg-red-500/10", barColor: "bg-red-500" },
@@ -31,7 +36,6 @@ const Classifier = () => {
     }
   };
 
-  // Fonction pour obtenir le label approprié selon la destination
   const getClassLabel = (classId, destination) => {
     const scheme = classificationSchemes[destination] || classificationSchemes.kepler;
     return scheme[classId] || {
@@ -48,7 +52,7 @@ const Classifier = () => {
     setTimeout(() => setNotification(null), 5000);
   };
 
-  // ---------------- File Upload ----------------
+  // Gestion upload fichier
   const handleFileUpload = (event) => {
     const file = event.target.files?.[0];
     if (!file) return;
@@ -60,9 +64,10 @@ const Classifier = () => {
 
     setSelectedFile(file);
     setStats(null);
+    setRocImageUrl(null); // reset courbe ROC quand nouveau fichier
   };
 
-  // ---------------- Calculate Statistics ----------------
+  // Calcul stats de classification
   const calculateStats = (predictions) => {
     try {
       const total = predictions.length;
@@ -98,30 +103,93 @@ const Classifier = () => {
     }
   };
 
-  // ---------------- Classify ----------------
+  // Récupération automatique de la courbe ROC après classification
+  useEffect(() => {
+    if (!stats?.detectedDestination) return;
+
+    const loadCurves = async () => {
+      const dest = stats.detectedDestination === "auto" ? "kepler" : stats.detectedDestination;
+
+      // ROC Curve
+      setIsLoadingRoc(true);
+      setRocImageUrl(null);
+      try {
+        const response = await fetch(`http://127.0.0.1:8000/roc-curve/${dest}`);
+        if (!response.ok) throw new Error(`HTTP error! status: ${response.status}`);
+        const blob = await response.blob();
+        setRocImageUrl(URL.createObjectURL(blob));
+      } catch (err) {
+        console.error("Error loading ROC curve:", err);
+        setRocImageUrl(null);
+      } finally {
+        setIsLoadingRoc(false);
+      }
+
+      // PR Curve
+      setIsLoadingPr(true);
+      setPrImageUrl(null);
+      try {
+        const response = await fetch(`http://127.0.0.1:8000/pr-curve/${dest}`);
+        if (!response.ok) throw new Error(`HTTP error! status: ${response.status}`);
+        const blob = await response.blob();
+        setPrImageUrl(URL.createObjectURL(blob));
+      } catch (err) {
+        console.error("Error loading PR curve:", err);
+        setPrImageUrl(null);
+      } finally {
+        setIsLoadingPr(false);
+      }
+    };
+
+    loadCurves();
+  }, [stats]);
+
+  const [f1ImageUrl, setF1ImageUrl] = useState(null);
+const [isLoadingF1, setIsLoadingF1] = useState(false);
+
+// Fonction pour charger la F1 curve
+useEffect(() => {
+  if (!stats?.detectedDestination) return;
+
+  const loadF1Curve = async () => {
+    setIsLoadingF1(true);
+    setF1ImageUrl(null);
+    try {
+      const dest = stats.detectedDestination === "auto" ? "kepler" : stats.detectedDestination;
+      const response = await fetch(`http://127.0.0.1:8000/confidence-distribution/${dest}`);
+      if (!response.ok) throw new Error(`HTTP error! status: ${response.status}`);
+      const blob = await response.blob();
+      setF1ImageUrl(URL.createObjectURL(blob));
+    } catch (err) {
+      console.error("Error loading F1 curve:", err);
+      setF1ImageUrl(null);
+    } finally {
+      setIsLoadingF1(false);
+    }
+  };
+
+  loadF1Curve();
+}, [stats]);
+
+
+  // Classification
   const handleClassify = async () => {
     if (!selectedFile) return;
 
     setIsClassifying(true);
     setStats(null);
+    setRocImageUrl(null);
 
     try {
       const formData = new FormData();
       formData.append("file", selectedFile);
 
-      // Construire l'URL avec ou sans destination
       let url = `http://127.0.0.1:8000/predict-file?has_labels=false`;
       if (destination !== "auto") {
         url += `&destination=${destination}`;
       }
 
-      const response = await fetch(
-        url,
-        {
-          method: "POST",
-          body: formData,
-        }
-      );
+      const response = await fetch(url, { method: "POST", body: formData });
 
       if (!response.ok) {
         const errorData = await response.json().catch(() => ({}));
@@ -129,13 +197,12 @@ const Classifier = () => {
       }
 
       const data = await response.json();
-      console.log("Response data:", data); // Debug log
 
       if (data.predictions && Array.isArray(data.predictions)) {
         const calculatedStats = calculateStats(data.predictions);
         calculatedStats.detectedDestination = data.destination;
         setStats(calculatedStats);
-        
+
         const destName = data.destination === 'toi' ? 'TESS' : data.destination.toUpperCase();
         showToast("Classification complete!", `Successfully analyzed ${calculatedStats.total} samples using ${destName} model`);
       } else {
@@ -143,11 +210,7 @@ const Classifier = () => {
       }
     } catch (error) {
       console.error("Prediction error:", error);
-      showToast(
-        "Classification failed", 
-        error.message || "Please try again later", 
-        "destructive"
-      );
+      showToast("Classification failed", error.message || "Please try again later", "destructive");
     } finally {
       setIsClassifying(false);
     }
@@ -155,26 +218,20 @@ const Classifier = () => {
 
   return (
     <div className="min-h-screen bg-slate-950 relative overflow-hidden">
-      {/* Background effects */}
       <div className="absolute inset-0 bg-[linear-gradient(to_right,#4f4f4f2e_1px,transparent_1px),linear-gradient(to_bottom,#4f4f4f2e_1px,transparent_1px)] bg-[size:14px_24px]" />
       <div className="absolute top-20 left-20 w-96 h-96 bg-blue-500/20 rounded-full blur-3xl animate-pulse" />
       <div className="absolute bottom-20 right-20 w-96 h-96 bg-purple-500/20 rounded-full blur-3xl animate-pulse" style={{ animationDelay: "1s" }} />
 
       {/* Toast Notification */}
       {notification && (
-        <div className={`fixed top-4 right-4 z-50 p-4 rounded-lg shadow-lg max-w-md animate-fade-in ${
-          notification.variant === "destructive" ? "bg-red-900/90 border border-red-700" : "bg-slate-800/90 border border-slate-700"
-        }`}>
+        <div className={`fixed top-4 right-4 z-50 p-4 rounded-lg shadow-lg max-w-md animate-fade-in ${notification.variant === "destructive" ? "bg-red-900/90 border border-red-700" : "bg-slate-800/90 border border-slate-700"}`}>
           <h4 className="font-semibold text-white mb-1">{notification.title}</h4>
           <p className="text-sm text-gray-300">{notification.description}</p>
         </div>
       )}
 
       <div className="container mx-auto px-4 py-8 relative z-10">
-        <button
-          onClick={() => window.history.back()}
-          className="mb-8 text-gray-300 hover:text-blue-400 transition-colors flex items-center gap-2"
-        >
+        <button onClick={() => window.history.back()} className="mb-8 text-gray-300 hover:text-blue-400 transition-colors flex items-center gap-2">
           <ArrowLeft className="h-4 w-4" />
           Back to Home
         </button>
@@ -224,9 +281,7 @@ const Classifier = () => {
                 />
                 <label
                   htmlFor="file-upload"
-                  className={`flex flex-col items-center justify-center w-full h-64 border-2 border-dashed border-slate-700 rounded-lg cursor-pointer hover:border-blue-500 transition-colors bg-slate-800/20 ${
-                    isClassifying ? "opacity-50 cursor-not-allowed" : ""
-                  }`}
+                  className={`flex flex-col items-center justify-center w-full h-64 border-2 border-dashed border-slate-700 rounded-lg cursor-pointer hover:border-blue-500 transition-colors bg-slate-800/20 ${isClassifying ? "opacity-50 cursor-not-allowed" : ""}`}
                 >
                   {selectedFile ? (
                     <div className="flex flex-col items-center">
@@ -335,7 +390,6 @@ const Classifier = () => {
                           </div>
                         </div>
                         
-                        {/* Progress Bar with animation */}
                         <div className="w-full bg-slate-800/50 rounded-full h-3 overflow-hidden">
                           <div
                             className={`h-3 rounded-full ${label.barColor} transition-all duration-1000 ease-out`}
@@ -351,126 +405,57 @@ const Classifier = () => {
                 </div>
               </div>
 
-              {/* Summary Insights */}
-              <div className="p-6 bg-slate-900/50 backdrop-blur-sm border border-slate-800 rounded-lg">
-                <h3 className="text-lg font-semibold text-white mb-4">Key Insights</h3>
-                <div className="space-y-3 text-sm">
-                  {stats.detectedDestination === 'toi' ? (
-                    <>
-                      <div className="flex items-start">
-                        <Sparkles className="h-4 w-4 text-emerald-500 mr-2 mt-0.5 flex-shrink-0" />
-                        <p className="text-gray-400">
-                          <span className="font-semibold text-white">
-                            {stats.classCounts[5] || 0} confirmed planets (CP)
-                          </span> validated
-                        </p>
-                      </div>
-                      <div className="flex items-start">
-                        <Sparkles className="h-4 w-4 text-green-500 mr-2 mt-0.5 flex-shrink-0" />
-                        <p className="text-gray-400">
-                          <span className="font-semibold text-white">
-                            {stats.classCounts[2] || 0} known planets (KP)
-                          </span> previously identified
-                        </p>
-                      </div>
-                      <div className="flex items-start">
-                        <Sparkles className="h-4 w-4 text-yellow-500 mr-2 mt-0.5 flex-shrink-0" />
-                        <p className="text-gray-400">
-                          <span className="font-semibold text-white">
-                            {stats.classCounts[1] || 0} planetary candidates (PC)
-                          </span> detected
-                        </p>
-                      </div>
-                      <div className="flex items-start">
-                        <Sparkles className="h-4 w-4 text-orange-500 mr-2 mt-0.5 flex-shrink-0" />
-                        <p className="text-gray-400">
-                          <span className="font-semibold text-white">
-                            {stats.classCounts[3] || 0} ambiguous candidates (APC)
-                          </span> require investigation
-                        </p>
-                      </div>
-                      <div className="flex items-start">
-                        <Sparkles className="h-4 w-4 text-red-500 mr-2 mt-0.5 flex-shrink-0" />
-                        <p className="text-gray-400">
-                          <span className="font-semibold text-white">
-                            {stats.classCounts[0] || 0} false positives (FP)
-                          </span> filtered out
-                        </p>
-                      </div>
-                      <div className="flex items-start">
-                        <Sparkles className="h-4 w-4 text-pink-500 mr-2 mt-0.5 flex-shrink-0" />
-                        <p className="text-gray-400">
-                          <span className="font-semibold text-white">
-                            {stats.classCounts[4] || 0} false alarms (FA)
-                          </span> detected
-                        </p>
-                      </div>
-                    </>
-                  ) : stats.detectedDestination === 'k2' ? (
-                    <>
-                      <div className="flex items-start">
-                        <Sparkles className="h-4 w-4 text-green-500 mr-2 mt-0.5 flex-shrink-0" />
-                        <p className="text-gray-400">
-                          <span className="font-semibold text-white">
-                            {stats.classCounts[0] || 0} confirmed planets
-                          </span> validated
-                        </p>
-                      </div>
-                      <div className="flex items-start">
-                        <Sparkles className="h-4 w-4 text-yellow-500 mr-2 mt-0.5 flex-shrink-0" />
-                        <p className="text-gray-400">
-                          <span className="font-semibold text-white">
-                            {stats.classCounts[1] || 0} candidates
-                          </span> require validation
-                        </p>
-                      </div>
-                      <div className="flex items-start">
-                        <Sparkles className="h-4 w-4 text-red-500 mr-2 mt-0.5 flex-shrink-0" />
-                        <p className="text-gray-400">
-                          <span className="font-semibold text-white">
-                            {stats.classCounts[2] || 0} false positives
-                          </span> filtered out
-                        </p>
-                      </div>
-                      <div className="flex items-start">
-                        <Sparkles className="h-4 w-4 text-orange-500 mr-2 mt-0.5 flex-shrink-0" />
-                        <p className="text-gray-400">
-                          <span className="font-semibold text-white">
-                            {stats.classCounts[3] || 0} refuted
-                          </span> rejected after review
-                        </p>
-                      </div>
-                    </>
-                  ) : (
-                    <>
-                      <div className="flex items-start">
-                        <Sparkles className="h-4 w-4 text-green-500 mr-2 mt-0.5 flex-shrink-0" />
-                        <p className="text-gray-400">
-                          <span className="font-semibold text-white">
-                            {stats.classCounts[1] || 0} confirmed planets
-                          </span> detected with high confidence
-                        </p>
-                      </div>
-                      <div className="flex items-start">
-                        <Sparkles className="h-4 w-4 text-yellow-500 mr-2 mt-0.5 flex-shrink-0" />
-                        <p className="text-gray-400">
-                          <span className="font-semibold text-white">
-                            {stats.classCounts[2] || 0} candidates
-                          </span> require further investigation
-                        </p>
-                      </div>
-                      <div className="flex items-start">
-                        <Sparkles className="h-4 w-4 text-red-500 mr-2 mt-0.5 flex-shrink-0" />
-                        <p className="text-gray-400">
-                          <span className="font-semibold text-white">
-                            {stats.classCounts[0] || 0} false positives
-                          </span> identified and filtered out
-                        </p>
-                      </div>
-                    </>
-                  )}
-                </div>
+              {/* ROC Curve Display */}
+              <div className="p-6 bg-slate-900/50 rounded-lg mt-6 text-center">
+                <h3 className="text-lg font-semibold text-white mb-4">ROC curve</h3>
+                {isLoadingRoc ? (
+                  <div className="flex justify-center items-center text-white">
+                    <Loader2 className="h-6 w-6 animate-spin mr-2" /> Download...
+                  </div>
+                ) : rocImageUrl ? (
+                  <img
+                    src={rocImageUrl}
+                    alt="ROC Curve"
+                    style={{ maxWidth: "100%", height: "auto", borderRadius: "8px" }}
+                  />
+                ) : (
+                  <p className="text-gray-400">The Roc curve will appear after classification.</p>
+                )}
               </div>
+
+              {/* PR Curve */}
+              <div className="p-6 bg-slate-900/50 rounded-lg mt-6 text-center">
+                <h3 className="text-lg font-semibold text-white mb-4">Precision-Recall curve</h3>
+                {isLoadingPr ? (
+                  <div className="flex justify-center items-center text-white">
+                    <Loader2 className="h-6 w-6 animate-spin mr-2" /> Download...
+                  </div>
+                ) : prImageUrl ? (
+                  <img src={prImageUrl} alt="PR Curve" style={{ maxWidth: "100%", height: "auto", borderRadius: "8px" }} />
+                ) : (
+                  <p className="text-gray-400">The PR curve will appear after classification.</p>
+                )}
+              </div>
+
+              {/* model confidence yes*/}
+              <div className="p-6 bg-slate-900/50 rounded-lg mt-6 text-center">
+                <h3 className="text-lg font-semibold text-white mb-4">Model confidence: probability of distribution</h3>
+                {isLoadingF1 ? (
+                  <div className="flex justify-center items-center text-white">
+                    <Loader2 className="h-6 w-6 animate-spin mr-2" /> Download...
+                  </div>
+                ) : f1ImageUrl ? (
+                  <img
+                    src={f1ImageUrl}
+                    alt="F1 Curve"
+                    style={{ maxWidth: "100%", height: "auto", borderRadius: "8px" }}
+                  />
+                ) : (
+                  <p className="text-gray-400">The F1 curve will appear after classification.</p>
+                )}
+              </div>
+
+
             </div>
           )}
         </div>

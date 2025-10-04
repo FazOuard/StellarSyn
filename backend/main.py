@@ -3,15 +3,22 @@ from fastapi import FastAPI, HTTPException, Request, UploadFile, File
 from fastapi.middleware.cors import CORSMiddleware
 from fastapi.responses import JSONResponse
 from pydantic import BaseModel, Field
+import shap
 import logging
 import time
 import traceback
 import pandas as pd
+import seaborn as sns
 import numpy as np
 import io
+from fastapi.responses import Response
 import joblib
 from typing import List, Optional, Dict, Any
 from services.model_loader import pretraitement
+from fastapi.responses import StreamingResponse
+import matplotlib.pyplot as plt
+from sklearn.metrics import roc_curve, auc, precision_recall_curve, average_precision_score, f1_score
+from sklearn.preprocessing import label_binarize
 
 from config import APP_NAME, APP_VERSION, DEBUG, LOG_LEVEL
 
@@ -132,17 +139,23 @@ async def startup_event():
             "kepler": {
                 "model": joblib.load("models/kepler/model.joblib"),
                 "imputer": joblib.load("models/kepler/imputer.joblib"),
-                "scaler": joblib.load("models/kepler/scaler.joblib")
+                "scaler": joblib.load("models/kepler/scaler.joblib"),
+                "X_test_sc": joblib.load("models/kepler/X_test_sc.joblib"),
+                "y_test": joblib.load("models/kepler/y_test.joblib")
             },
             "k2": {
                 "model": joblib.load("models/k2/model.joblib"),
                 "imputer": joblib.load("models/k2/imputer.joblib"),
-                "scaler": joblib.load("models/k2/scaler.joblib")
+                "scaler": joblib.load("models/k2/scaler.joblib"),
+                "X_test_sc": joblib.load("models/k2/X_test_sc.joblib"),
+                "y_test": joblib.load("models/k2/y_test.joblib")
             },
             "toi": {
                 "model": joblib.load("models/toi/model.joblib"),
                 "imputer": joblib.load("models/toi/imputer.joblib"),
-                "scaler": joblib.load("models/toi/scaler.joblib")
+                "scaler": joblib.load("models/toi/scaler.joblib"),
+                "X_test_sc": joblib.load("models/toi/X_test_sc.joblib"),
+                "y_test": joblib.load("models/toi/y_test.joblib")
             }
         }
 
@@ -348,3 +361,342 @@ async def predict_from_file(
         logger.error(f"❌ Batch prediction failed: {str(e)}")
         logger.error(traceback.format_exc())
         raise HTTPException(status_code=500, detail=f"Batch prediction failed: {str(e)}")
+    
+
+# ------------------ ROC Curve Endpoint ------------------
+
+
+@app.get("/roc-curve/{destination}")
+async def roc_curve_endpoint(destination: str):
+    """
+    Génère et retourne la courbe ROC pour le modèle choisi (binaire ou multiclasses).
+    """
+    
+    if destination not in models:
+        raise HTTPException(status_code=400, detail=f"Destination '{destination}' non trouvée")
+
+    if destination=="kepler":
+        class_names = {
+            0: "False Positive",
+            1: "Confirmed Planet",
+            2: "Candidate"
+        }
+    elif destination=="k2":
+        class_names = {
+            0: "Confirmed",
+            1: "Candidate",
+            2: "False Positive",
+            3: "Refuted"
+        }
+    elif destination=="toi":
+        class_names = {
+            0: "False Positive (FP)",
+            1: "Planetary Candidate (PC)",
+            2: "Known Planet (KP)",
+            3: "Ambiguous (APC)",
+            4: "False Alarm (FA)",
+            5: "Confirmed Planet (CP)"
+        }
+    bundle = models[destination]
+    model = bundle.get("model")
+    X_test = bundle.get("X_test_sc")
+    y_test = bundle.get("y_test")
+    sns.set_style("darkgrid", {
+        'axes.facecolor': '#ECE0E000',         # fond transparent/dégradé
+        'figure.facecolor': '#ECE0E000',
+        'axes.edgecolor': 'black',             # couleur bordure axes
+        'xtick.color': 'white',                # couleur ticks axe x
+        'ytick.color': 'white',                # couleur ticks axe y
+        'axes.labelcolor': 'white',            # couleur labels axes
+        'grid.color': 'gray'                   # couleur grille
+    })
+    if X_test is None or y_test is None:
+        logger.warning(f"Aucune donnée test pour {destination}, ROC non disponible.")
+        return {"message": "ROC non disponible pour ce modèle (X_test/y_test manquant)"}
+
+    try:
+        y_score = model.predict_proba(X_test)
+
+        # Cas binaire
+        if y_score.shape[1] == 2:
+            fpr, tpr, _ = roc_curve(y_test, y_score[:, 1])
+            roc_auc = auc(fpr, tpr)
+
+            plt.figure(figsize=(7, 6))
+            plt.plot(fpr, tpr, color='darkorange', lw=2, label=f'ROC curve (AUC = {roc_auc:.2f})')
+            plt.plot([0, 1], [0, 1], color='navy', lw=2, linestyle='--')
+            plt.xlabel('False Positive Rate')
+            plt.ylabel('True Positive Rate')
+            #plt.title(f'Courbe ROC - {destination}')
+            plt.legend(loc="lower right")
+
+        # Cas multiclasses
+        else:
+            classes = np.unique(y_test)
+            y_test_bin = label_binarize(y_test, classes=classes)
+            n_classes = y_test_bin.shape[1]
+
+            colors = ['darkorange', 'green', 'red', 'blue', 'purple', 'brown']
+            plt.figure(figsize=(8, 6))
+
+            for i in range(n_classes):
+                fpr, tpr, _ = roc_curve(y_test_bin[:, i], y_score[:, i])
+                roc_auc = auc(fpr, tpr)
+                label = f"{class_names[classes[i]]} (AUC = {roc_auc:.2f})"
+                plt.plot(fpr, tpr, color=colors[i % len(colors)], lw=2, label=label)
+
+
+            plt.plot([0, 1], [0, 1], color='navy', lw=2, linestyle='--')
+            plt.xlabel('False Positive Rate')
+            plt.ylabel('True Positive Rate')
+            #plt.title(f'Courbes ROC Multiclasses - {destination}')
+            plt.legend(loc="lower right")
+
+        # Sauvegarde et envo
+        roc_path = f"roc_{destination}.png"
+        plt.savefig(roc_path)
+        plt.close()
+
+        with open(roc_path, "rb") as f:
+            image_bytes = f.read()
+        return Response(content=image_bytes, media_type="image/png", headers={"Access-Control-Allow-Origin": "*"})
+
+    except Exception as e:
+        logger.error(f"Erreur génération ROC ({destination}): {e}")
+        raise HTTPException(status_code=500, detail=str(e))
+    
+
+
+@app.get("/pr-curve/{destination}")
+async def pr_curve_endpoint(destination: str):
+    """
+    Génère et retourne la courbe Precision-Recall pour le modèle choisi.
+    """
+    if destination not in models:
+        raise HTTPException(status_code=400, detail=f"Destination '{destination}' non trouvée")
+
+    # Définition des noms de classes
+    if destination == "kepler":
+        class_names = {0: "False Positive", 1: "Confirmed Planet", 2: "Candidate"}
+    elif destination == "k2":
+        class_names = {0: "Confirmed", 1: "Candidate", 2: "False Positive", 3: "Refuted"}
+    elif destination == "toi":
+        class_names = {0: "False Positive (FP)", 1: "Planetary Candidate (PC)", 2: "Known Planet (KP)",
+                       3: "Ambiguous (APC)", 4: "False Alarm (FA)", 5: "Confirmed Planet (CP)"}
+
+    bundle = models[destination]
+    model = bundle.get("model")
+    X_test = bundle.get("X_test_sc")
+    y_test = bundle.get("y_test")
+
+    sns.set_style("darkgrid", {
+        'axes.facecolor': '#ECE0E000',
+        'figure.facecolor': '#ECE0E000',
+        'axes.edgecolor': 'black',
+        'xtick.color': 'white',
+        'ytick.color': 'white',
+        'axes.labelcolor': 'white',
+        'grid.color': 'gray'
+    })
+
+    if X_test is None or y_test is None:
+        logger.warning(f"Aucune donnée test pour {destination}, PR non disponible.")
+        return {"message": "PR non disponible pour ce modèle (X_test/y_test manquant)"}
+
+    try:
+        y_score = model.predict_proba(X_test)
+
+        plt.figure(figsize=(8, 6))
+        # Cas binaire
+        if y_score.shape[1] == 2:
+            precision, recall, _ = precision_recall_curve(y_test, y_score[:, 1])
+            ap = average_precision_score(y_test, y_score[:, 1])
+            plt.plot(recall, precision, color='darkorange', lw=2, label=f'Precision-Recall (AP = {ap:.2f})')
+        
+        # Cas multiclasses
+        else:
+            classes = np.unique(y_test)
+            y_test_bin = label_binarize(y_test, classes=classes)
+            n_classes = y_test_bin.shape[1]
+            colors = ['darkorange', 'green', 'red', 'blue', 'purple', 'brown']
+
+            for i in range(n_classes):
+                precision, recall, _ = precision_recall_curve(y_test_bin[:, i], y_score[:, i])
+                ap = average_precision_score(y_test_bin[:, i], y_score[:, i])
+                plt.plot(recall, precision, color=colors[i % len(colors)], lw=2,
+                         label=f"{class_names[classes[i]]} (AP = {ap:.2f})")
+
+        plt.xlabel('Recall')
+        plt.ylabel('Precision')
+        plt.legend(loc="lower left")
+
+        # Sauvegarde et retour
+        pr_path = f"pr_{destination}.png"
+        plt.savefig(pr_path)
+        plt.close()
+
+        with open(pr_path, "rb") as f:
+            image_bytes = f.read()
+        return Response(content=image_bytes, media_type="image/png", headers={"Access-Control-Allow-Origin": "*"})
+
+    except Exception as e:
+        logger.error(f"Erreur génération PR ({destination}): {e}")
+        raise HTTPException(status_code=500, detail=str(e))
+    
+@app.get("/f1-curve/{destination}")
+async def f1_curve_endpoint(destination: str):
+    if destination not in models:
+        raise HTTPException(status_code=400, detail=f"Destination '{destination}' non trouvée")
+
+    bundle = models[destination]
+    model = bundle.get("model")
+    X_test = bundle.get("X_test_sc")
+    y_test = bundle.get("y_test")
+
+    if X_test is None or y_test is None or X_test.shape[0] == 0:
+        raise HTTPException(status_code=400, detail="F1 curve non disponible (X_test/y_test manquant ou vide)")
+
+    try:
+        # score
+        y_score = model.predict_proba(X_test)
+        n_classes = y_score.shape[1]
+
+        thresholds = np.linspace(0, 1, 100)
+        f1_scores = []
+
+        if n_classes == 2:
+            y_score = y_score[:, 1]
+            for t in thresholds:
+                y_pred = (y_score >= t).astype(int)
+                f1 = f1_score(y_test, y_pred, average='binary')
+                f1_scores.append(f1)
+        else:  # multi-class
+            for t in thresholds:
+                y_pred = np.argmax(y_score, axis=1)  # ou ajuster selon le seuil si besoin
+                f1 = f1_score(y_test, y_pred, average='macro')
+                f1_scores.append(f1)
+
+        # création image en mémoire
+        plt.figure(figsize=(7, 6))
+        plt.plot(thresholds, f1_scores, color='purple', lw=2)
+        plt.xlabel("Threshold")
+        plt.ylabel("F1 Score")
+        #plt.title(f"F1 Score vs Threshold - {destination}")
+        plt.grid(True)
+
+        buf = io.BytesIO()
+        plt.savefig(buf, format='png')
+        buf.seek(0)
+        plt.close()
+
+        return Response(content=buf.getvalue(), media_type="image/png", headers={"Access-Control-Allow-Origin": "*"})
+
+    except Exception as e:
+        raise HTTPException(status_code=500, detail=str(e))
+    
+@app.get("/confidence-distribution/{destination}")
+async def confidence_distribution(destination: str):
+    """
+    Génère la distribution des probabilités (confiance) pour chaque classe du modèle.
+    """
+
+    if destination not in models:
+        raise HTTPException(status_code=400, detail=f"Destination '{destination}' non trouvée")
+    
+    if destination == "kepler":
+        class_names = {0: "False Positive", 1: "Confirmed Planet", 2: "Candidate"}
+    elif destination == "k2":
+        class_names = {0: "Confirmed", 1: "Candidate", 2: "False Positive", 3: "Refuted"}
+    elif destination == "toi":
+        class_names = {0: "False Positive (FP)", 1: "Planetary Candidate (PC)", 2: "Known Planet (KP)",
+                       3: "Ambiguous (APC)", 4: "False Alarm (FA)", 5: "Confirmed Planet (CP)"}
+
+    bundle = models[destination]
+    model = bundle.get("model")
+    X_test = bundle.get("X_test_sc")
+    y_test = bundle.get("y_test")
+    sns.set_style("darkgrid", {
+        'axes.facecolor': '#ECE0E000',
+        'figure.facecolor': '#ECE0E000',
+        'axes.edgecolor': 'black',
+        'xtick.color': 'white',
+        'ytick.color': 'white',
+        'axes.labelcolor': 'white',
+        'grid.color': 'gray'
+    })
+    if X_test is None or y_test is None:
+        raise HTTPException(status_code=400, detail="Données de test manquantes")
+    
+    try:
+        # Probabilités prédites pour chaque classe
+        y_probs = model.predict_proba(X_test)  # shape (n_samples, n_classes)
+        n_classes = y_probs.shape[1]
+        
+        plt.figure(figsize=(8,6))
+        for class_idx in range(n_classes):
+            label=class_names.get(class_idx, f"Class {class_idx}")
+            plt.hist(y_probs[:, class_idx], bins=20, alpha=0.5, label=label)
+        
+        plt.xlabel("Probability")
+        plt.ylabel("Number of samples")
+        #plt.title(f"Model Confidence Distribution - {destination}")
+        plt.legend()
+        plt.grid(True)
+        
+        # Sauvegarde en mémoire et envoi
+        buf = io.BytesIO()
+        plt.savefig(buf, format="png")
+        plt.close()
+        buf.seek(0)
+        return Response(content=buf.getvalue(), media_type="image/png",
+                        headers={"Access-Control-Allow-Origin": "*"})
+    
+    except Exception as e:
+        raise HTTPException(status_code=500, detail=str(e))
+    
+
+
+@app.get("/shap-plot/{destination}")
+async def shap_plot(destination: str):
+    """
+    Génère et retourne la SHAP summary plot pour le modèle choisi.
+    """
+    if destination not in models:
+        raise HTTPException(status_code=400, detail=f"Destination '{destination}' non trouvée")
+
+    bundle = models[destination]
+    model = bundle.get("model")
+    X_test = bundle.get("X_test_sc")
+    y_test = bundle.get("y_test")
+
+    if X_test is None or y_test is None:
+        return {"message": "SHAP plot non disponible pour ce modèle (X_test/y_test manquant)"}
+
+    try:
+        # 1️⃣ Créer un mini-modèle final pour expliquer le final_estimator
+        base_preds = np.column_stack([
+            est.predict_proba(X_test)[:, 1] for name, est in model.named_estimators_.items()
+        ])
+        final_model = model.final_estimator_
+
+        # 2️⃣ Explainer pour final estimator
+        explainer = shap.Explainer(final_model, base_preds)
+        shap_values = explainer(base_preds)
+
+        # 3️⃣ Plot SHAP summary
+        plt.figure(figsize=(8,6))
+        shap.summary_plot(shap_values, base_preds, show=False)
+        plt.title(f"SHAP Summary Plot - {destination}", fontsize=14)
+
+        # 4️⃣ Sauvegarde image temporaire
+        shap_path = f"shap_{destination}.png"
+        plt.savefig(shap_path, bbox_inches='tight')
+        plt.close()
+
+        # 5️⃣ Retourne l'image
+        with open(shap_path, "rb") as f:
+            image_bytes = f.read()
+        return Response(content=image_bytes, media_type="image/png", headers={"Access-Control-Allow-Origin": "*"})
+
+    except Exception as e:
+        raise HTTPException(status_code=500, detail=str(e))
