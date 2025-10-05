@@ -48,7 +48,7 @@ const ExoplanetHub = () => {
           </h1>
           
           <p className="text-xl text-gray-400 max-w-2xl mx-auto mb-4">
-            Discover and classify exoplanets using advanced machine learning models
+            Discover and classify exoplanets using machine learning models
           </p>
           
           <div className="flex justify-center gap-4 text-sm text-gray-500">
