@@ -217,7 +217,7 @@ useEffect(() => {
   };
 
   return (
-    <div className="min-h-screen bg-slate-950 relative overflow-hidden">
+    <div className="min-h-screen bg-slate-950 relative overflow-hidden overflow-y-auto">
       <div className="absolute inset-0 bg-[linear-gradient(to_right,#4f4f4f2e_1px,transparent_1px),linear-gradient(to_bottom,#4f4f4f2e_1px,transparent_1px)] bg-[size:14px_24px]" />
       <div className="absolute top-20 left-20 w-96 h-96 bg-blue-500/20 rounded-full blur-3xl animate-pulse" />
       <div className="absolute bottom-20 right-20 w-96 h-96 bg-purple-500/20 rounded-full blur-3xl animate-pulse" style={{ animationDelay: "1s" }} />
@@ -467,21 +467,21 @@ useEffect(() => {
 
               {/* model confidence yes*/}
               <div className="p-6 bg-slate-900/50 rounded-lg mt-6 text-center w-full md:w-3/4 lg:w-1/2 mx-auto">
-                <h3 className="text-lg font-semibold text-white mb-4">Model confidence: probability of distribution</h3>
-                {isLoadingF1 ? (
-                  <div className="flex justify-center items-center text-white">
-                    <Loader2 className="h-6 w-6 animate-spin mr-2" /> Download...
-                  </div>
-                ) : f1ImageUrl ? (
-                  <img
-                    src={f1ImageUrl}
-                    alt="Model confidence Curve"
-                    style={{ maxWidth: "100%", height: "auto", borderRadius: "8px" }}
-                  />
-                ) : (
-                  <p className="text-gray-400">The Model confidence curve will appear after classification.</p>
-                )}
-              </div>
+              <h3 className="text-lg font-semibold text-white mb-4">Model confidence: probability of distribution</h3>
+              {isLoadingF1 ? (
+                <div className="flex justify-center items-center text-white">
+                  <Loader2 className="h-6 w-6 animate-spin mr-2" /> Download...
+                </div>
+              ) : f1ImageUrl ? (
+                <img
+                  src={f1ImageUrl}
+                  alt="Model confidence Curve"
+                  style={{ maxWidth: "100%", height: "auto", borderRadius: "8px" }}
+                />
+              ) : (
+                <p className="text-gray-400">The Model confidence curve will appear after classification.</p>
+              )}
+            </div>
 
               <div className="mt-6 p-4 bg-slate-800/30 rounded-lg border border-slate-700/30">
                 <h4 className="text-white font-semibold mb-2 flex items-center gap-2">
