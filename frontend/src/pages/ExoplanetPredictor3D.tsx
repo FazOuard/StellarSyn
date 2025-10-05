@@ -7,6 +7,7 @@ const featureKeys = {
   tess: ["pl_orbper", "pl_trandurh", "pl_trandep", "pl_rade", "pl_eqt", "pl_insol", "st_teff", "st_rad"]
 };
 
+
 const featureDefaults = {
   kepler: { koi_period: 10.0, koi_duration: 3.5, koi_depth: 500, koi_prad: 2.5, koi_teq: 300, koi_insol: 1.2, koi_steff: 5800, koi_srad: 1.0 },
   k2: { pl_orbper: 10.0, pl_trandurh: 3.5, pl_trandep: 500, pl_rade: 2.5, pl_eqt: 300, pl_insol: 1.2, st_teff: 5800, st_rad: 1.0 },
@@ -14,23 +15,23 @@ const featureDefaults = {
 };
 
 const featureConfigLabels = {
-  koi_period: { label: 'Orbital Period', unit: 'days', min: 0.5, max: 500, step: 0.5, icon: '🔄' },
-  koi_duration: { label: 'Transit Duration', unit: 'hours', min: 0.5, max: 24, step: 0.1, icon: '⏱️' },
-  koi_depth: { label: 'Transit Depth', unit: 'ppm', min: 10, max: 50000, step: 10, icon: '📉' },
-  koi_prad: { label: 'Planetary Radius', unit: 'R⊕', min: 0.1, max: 30, step: 0.1, icon: '🪐' },
-  koi_teq: { label: 'Equilibrium Temp', unit: 'K', min: 100, max: 3000, step: 10, icon: '🌡️' },
-  koi_insol: { label: 'Insolation Flux', unit: 'S⊕', min: 0.01, max: 1000, step: 0.1, icon: '☀️' },
-  koi_steff: { label: 'Stellar Temperature', unit: 'K', min: 3000, max: 10000, step: 100, icon: '⭐' },
-  koi_srad: { label: 'Stellar Radius', unit: 'R☉', min: 0.1, max: 5, step: 0.1, icon: '🌟' },
+  koi_period: { label: 'Orbital Period', unit: 'days', min: 0.5, max: 500, step: 0.5 },
+  koi_duration: { label: 'Transit Duration', unit: 'hours', min: 0.5, max: 24, step: 0.1},
+  koi_depth: { label: 'Transit Depth', unit: 'ppm', min: 10, max: 50000, step: 10 },
+  koi_prad: { label: 'Planetary Radius', unit: 'R⊕', min: 0.1, max: 30, step: 0.1 },
+  koi_teq: { label: 'Equilibrium Temp', unit: 'K', min: 100, max: 3000, step: 10 },
+  koi_insol: { label: 'Insolation Flux', unit: 'S⊕', min: 0.01, max: 1000, step: 0.1 },
+  koi_steff: { label: 'Stellar Temperature', unit: 'K', min: 3000, max: 10000, step: 100 },
+  koi_srad: { label: 'Stellar Radius', unit: 'R☉', min: 0.1, max: 5, step: 0.1 },
 
-  pl_orbper: { label: 'Orbital Period', unit: 'days', min: 0.5, max: 500, step: 0.5, icon: '🔄' },
-  pl_trandurh: { label: 'Transit Duration', unit: 'hours', min: 0.5, max: 24, step: 0.1, icon: '⏱️' },
-  pl_trandep: { label: 'Transit Depth', unit: 'ppm', min: 10, max: 50000, step: 10, icon: '📉' },
-  pl_rade: { label: 'Planetary Radius', unit: 'R⊕', min: 0.1, max: 30, step: 0.1, icon: '🪐' },
-  pl_eqt: { label: 'Equilibrium Temp', unit: 'K', min: 100, max: 3000, step: 10, icon: '🌡️' },
-  pl_insol: { label: 'Insolation Flux', unit: 'S⊕', min: 0.01, max: 1000, step: 0.1, icon: '☀️' },
-  st_teff: { label: 'Stellar Temperature', unit: 'K', min: 3000, max: 10000, step: 100, icon: '⭐' },
-  st_rad: { label: 'Stellar Radius', unit: 'R☉', min: 0.1, max: 5, step: 0.1, icon: '🌟' }
+  pl_orbper: { label: 'Orbital Period', unit: 'days', min: 0.5, max: 500, step: 0.5 },
+  pl_trandurh: { label: 'Transit Duration', unit: 'hours', min: 0.5, max: 24, step: 0.1 },
+  pl_trandep: { label: 'Transit Depth', unit: 'ppm', min: 10, max: 50000, step: 10 },
+  pl_rade: { label: 'Planetary Radius', unit: 'R⊕', min: 0.1, max: 30, step: 0.1 },
+  pl_eqt: { label: 'Equilibrium Temp', unit: 'K', min: 100, max: 3000, step: 10 },
+  pl_insol: { label: 'Insolation Flux', unit: 'S⊕', min: 0.01, max: 1000, step: 0.1},
+  st_teff: { label: 'Stellar Temperature', unit: 'K', min: 3000, max: 10000, step: 100},
+  st_rad: { label: 'Stellar Radius', unit: 'R☉', min: 0.1, max: 5, step: 0.1 }
 };
 
 // Mapping des catégories
@@ -168,7 +169,7 @@ const ExoplanetPredictor3D = () => {
 
             <div className="bg-slate-900/50 rounded-xl p-6 border border-slate-700/50 space-y-4">
               <h3 className="text-xl font-bold mb-4 flex items-center gap-2">
-                <Sparkles className="h-5 w-5 text-yellow-400" /> Planet Parameters
+                Planet Parameters
               </h3>
 
               {featureConfig.map((config) => (
@@ -226,7 +227,7 @@ const ExoplanetPredictor3D = () => {
             {prediction && (
               <div className="bg-gradient-to-br from-slate-900/80 to-blue-900/30 rounded-xl p-6 border-2 border-blue-500/50">
                 <h3 className="text-xl font-bold mb-4 flex items-center gap-2">
-                  <Globe className="h-6 w-6 text-green-400" /> Prediction Results
+                  Prediction Results
                 </h3>
 
                 <div className="space-y-4">

@@ -114,7 +114,6 @@ class PredictRequest(BaseModel):
     destination: str
     simple_features: Dict[str, float]  # Dict of feature name to value
 
-
 @app.post("/predict-simple")
 async def predict_simple(request: PredictRequest):
     simple_features = request.simple_features
@@ -124,38 +123,86 @@ async def predict_simple(request: PredictRequest):
         raise HTTPException(status_code=400, detail=f"Destination '{destination}' non trouvée")
 
     bundle = models[destination]
-    feature_names = bundle.get("feature_names")
-    if feature_names is None:
+    raw_feature_names = bundle.get("feature_names")
+    if raw_feature_names is None:
         raise HTTPException(status_code=500, detail=f"Feature names missing for model {destination}")
+    
+    # Filtrer les colonnes cibles (qui ne doivent PAS être dans les features)
+    target_columns = {"label", "target", "koi_disposition", "exoplanet_archive_disposition", "tfopwg_disp", "disposition"}
+    feature_names_for_prediction = [f for f in raw_feature_names if f.lower() not in target_columns]
+    
+    logger.info(f"Raw features: {len(raw_feature_names)}, After filtering: {len(feature_names_for_prediction)}")
 
-    # Construire X_full avec valeur par défaut = 0 si manquante
-    X_full_list = [simple_features.get(f, 0) for f in feature_names]
-    X_full = np.array(X_full_list).reshape(1, -1)
+    # Créer DataFrame avec TOUTES les colonnes attendues par imputer/scaler (y compris label si présent)
+    X_df = pd.DataFrame([simple_features], columns=list(simple_features.keys()))
+    
+    # Ajouter les colonnes manquantes
+    for col in raw_feature_names:
+        if col not in X_df.columns:
+            if col.lower() in target_columns:
+                # Pour les colonnes cibles, mettre 0 (valeur factice, sera ignorée)
+                X_df[col] = 0
+            else:
+                # Pour les vraies features, NaN pour imputation
+                X_df[col] = np.nan
+    
+    # Réorganiser dans l'ordre exact attendu par imputer/scaler
+    X_df = X_df[raw_feature_names]
+    
+    logger.info(f"Input shape before processing: {X_df.shape}")
+    logger.debug(f"Columns: {X_df.columns.tolist()}")
 
-    # --- Imputation ---
-    X_full = bundle["imputer"].transform(X_full)
+    # Imputation
+    try:
+        X_imputed = bundle["imputer"].transform(X_df)
+        X_imputed_df = pd.DataFrame(X_imputed, columns=raw_feature_names)
+        logger.debug(f"Imputation successful")
+    except Exception as e:
+        logger.error(f"Imputation failed: {e}")
+        raise HTTPException(status_code=500, detail=f"Imputation error: {str(e)}")
 
-    # Ajustement automatique si nombre de colonnes différent du scaler
-    n_scaler = getattr(bundle["scaler"], "n_features_in_", X_full.shape[1])
-    if X_full.shape[1] > n_scaler:
-        X_full = X_full[:, :n_scaler]  # couper les colonnes en trop
-    elif X_full.shape[1] < n_scaler:
-        missing = n_scaler - X_full.shape[1]
-        X_full = np.hstack([X_full, np.zeros((X_full.shape[0], missing))])  # compléter avec 0
+    # Retirer les colonnes cibles APRÈS imputation mais AVANT scaling
+    X_for_scaling_df = X_imputed_df[[col for col in raw_feature_names if col.lower() not in target_columns]]
+    logger.info(f"Shape after removing targets (before scaling): {X_for_scaling_df.shape}")
 
-    # --- Normalisation ---
-    X_full = bundle["scaler"].transform(X_full)
+    # Normalisation (SANS les colonnes cibles)
+    try:
+        X_scaled = bundle["scaler"].transform(X_for_scaling_df)
+        logger.debug(f"Scaling successful, shape: {X_scaled.shape}")
+    except Exception as e:
+        logger.error(f"Scaling failed: {e}")
+        logger.error(f"Scaler expects: {bundle['scaler'].feature_names_in_ if hasattr(bundle['scaler'], 'feature_names_in_') else 'unknown'}")
+        logger.error(f"Provided columns: {X_for_scaling_df.columns.tolist()}")
+        raise HTTPException(status_code=500, detail=f"Scaling error: {str(e)}")
+
+    # X_scaled est déjà prêt pour la prédiction
+    X_final = X_scaled
+    
+    logger.info(f"Final shape for prediction: {X_final.shape}")
 
     # Prédiction
-    y_pred = bundle["model"].predict(X_full)[0]
+    try:
+        y_pred = bundle["model"].predict(X_final)[0]
+    except Exception as e:
+        logger.error(f"Prediction failed: {e}")
+        logger.error(f"Model expects {bundle['model'].n_features_in_} features, got {X_final.shape[1]}")
+        raise HTTPException(status_code=500, detail=f"Prediction error: {str(e)}")
 
-    # Probabilité si disponible
+    # Probabilité
     prob = None
     if hasattr(bundle["model"], "predict_proba"):
-        prob = float(bundle["model"].predict_proba(X_full).max())
+        proba_array = bundle["model"].predict_proba(X_final)
+        prob = float(proba_array[0, y_pred])
+        logger.info(f"Prediction: {y_pred}, Probability: {prob:.4f}")
 
-    return {"destination": destination, "prediction": int(y_pred), "probability": prob}
+    return {
+        "destination": destination, 
+        "prediction": int(y_pred), 
+        "probability": prob
+    }
+
 # ------------------ Helper Functions ------------------
+
 def detect_destination(df: pd.DataFrame) -> str:
     """
     Détecte automatiquement la destination en fonction des colonnes du DataFrame.
