@@ -14,6 +14,7 @@ import Home from "./pages/Home";
 import ExoplanetHub from "./pages/ExoplanetHub";
 import  Footer  from "@/components/ui/footer.tsx";
 import './index.css'
+import AboutUs from "./pages/About";
 const queryClient = new QueryClient();
 
 const App = () => {
@@ -39,6 +40,7 @@ const App = () => {
                     <Route path="/classifier" element={<Classifier />} />
                     <Route path="/satellites" element={<Satellites />} />
                     <Route path="/planets" element={<Planets />} />
+                    <Route path="/about" element={<AboutUs />} />
                     <Route path="/3d" element={<ExoplanetPredictor3D />} />
                     <Route path="/choose" element={<ExoplanetHub />} />
                     <Route path="*" element={<NotFound />} />
