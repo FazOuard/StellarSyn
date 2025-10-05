@@ -1,5 +1,6 @@
 import { useState, useEffect } from 'react';
 import { Rocket, Sparkles, Globe, Play, RotateCcw } from 'lucide-react';
+import { ArrowLeft } from 'lucide-react';
 import StellarSystem3D from './StellarSystem3D';
 const featureKeys = {
   kepler: ["koi_period", "koi_duration", "koi_depth", "koi_prad", "koi_teq", "koi_insol", "koi_steff", "koi_srad"],
@@ -135,13 +136,17 @@ const ExoplanetPredictor3D = () => {
 
   return (
     <div className="min-h-screen bg-gradient-to-b from-slate-950 via-blue-950 to-slate-950 text-white p-8">
+      <button onClick={() => window.history.back()} className="mb-8 text-gray-300 hover:text-blue-400 transition-colors flex items-center gap-2">
+          <ArrowLeft className="h-4 w-4" />
+          Exoplanet Discovery Hub
+        </button>
       <div className="max-w-7xl mx-auto">
         {/* Header */}
         <div className="text-center mb-12">
           <div className="inline-flex items-center gap-3 mb-4">
             
             <h1 className="text-5xl font-bold bg-gradient-to-r from-blue-400 to-purple-400 bg-clip-text text-transparent">
-              Exoplanet Discovery Lab
+              Single prediction & 3D Visualization
             </h1>
           </div>
           <p className="text-gray-400 text-lg">

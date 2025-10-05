@@ -13,7 +13,7 @@ const Home = () => {
     img3
   ];
   return (
-    <ImagesSlider className="flex-1" images={images}>
+    <ImagesSlider className="w-full min-h-screen" images={images}>
       <motion.div
         initial={{
           opacity: 0,

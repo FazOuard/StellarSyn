@@ -12,30 +12,45 @@ import ExoplanetPredictor3D from "./pages/ExoplanetPredictor3D";
 import Satellites from "./pages/Satellites";
 import Home from "./pages/Home";
 import ExoplanetHub from "./pages/ExoplanetHub";
+import  Footer  from "@/components/ui/footer.tsx";
+import './index.css'
 const queryClient = new QueryClient();
 
-const App = () => (
-  <QueryClientProvider client={queryClient}>
-    <TooltipProvider>
-      <Toaster />
-      <Sonner />
-      <BrowserRouter>
-        <div className="flex flex-col h-screen">
+const App = () => {
+  return (
+    <QueryClientProvider client={queryClient}>
+      <TooltipProvider>
+        <Toaster />
+        <Sonner />
+        <BrowserRouter>
         <NavBar />
-        <Routes>
-          <Route path="/" element={<Home />} />
-          <Route path="/classifier" element={<Classifier />} />
-          <Route path="/satellites" element={<Satellites />} />
-          <Route path="/planets" element={<Planets />} />
-          <Route path="/3d" element={<ExoplanetPredictor3D />} />
-          <Route path="/choose" element={<ExoplanetHub />} />
-          {/* ADD ALL CUSTOM ROUTES ABOVE THE CATCH-ALL "*" ROUTE */}
-          <Route path="*" element={<NotFound />} />
-        </Routes>
-        </div>
-      </BrowserRouter>
-    </TooltipProvider>
-  </QueryClientProvider>
-);
+          <Routes>
+            {/* Route Home en plein écran sans navbar/footer */}
+            
+            <Route path="/" element={<Home />} />
+            {/* Autres routes avec layout */}
+            <Route path="/*" element={
+              <div className="flex flex-col min-h-screen">
+                
+                <main className="flex-1 overflow-hidden">
+                  <Routes>
+                    
+                    <Route path="/classifier" element={<Classifier />} />
+                    <Route path="/satellites" element={<Satellites />} />
+                    <Route path="/planets" element={<Planets />} />
+                    <Route path="/3d" element={<ExoplanetPredictor3D />} />
+                    <Route path="/choose" element={<ExoplanetHub />} />
+                    <Route path="*" element={<NotFound />} />
+                  </Routes>
+                </main>
+                
+              </div>
+            } />
+          </Routes>
+        </BrowserRouter>
+      </TooltipProvider>
+    </QueryClientProvider>
+  );
+};
 
 export default App;

@@ -233,13 +233,13 @@ useEffect(() => {
       <div className="container mx-auto px-4 py-8 relative z-10">
         <button onClick={() => window.history.back()} className="mb-8 text-gray-300 hover:text-blue-400 transition-colors flex items-center gap-2">
           <ArrowLeft className="h-4 w-4" />
-          Back to Home
+          Exoplanet Discovery Hub
         </button>
 
         <div className="max-w-5xl mx-auto">
           <div className="text-center mb-12">
             <h1 className="text-5xl font-bold mb-4 bg-gradient-to-r from-blue-400 to-purple-400 bg-clip-text text-transparent">
-              Exoplanet Detector
+              Batch Classification
             </h1>
             <p className="text-xl text-gray-400">
               Upload a CSV/TSV dataset to predict exoplanet candidates

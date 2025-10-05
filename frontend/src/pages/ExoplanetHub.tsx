@@ -26,7 +26,7 @@ const ExoplanetHub = () => {
   ];
 
   return (
-    <div className="min-h-screen bg-slate-950 relative overflow-hidden overflow-y-auto">
+    <div className="min-h-screen bg-slate-950 relative overflow-hidden ">
       {/* Background Effects */}
       <div className="absolute inset-0 bg-[linear-gradient(to_right,#4f4f4f2e_1px,transparent_1px),linear-gradient(to_bottom,#4f4f4f2e_1px,transparent_1px)] bg-[size:14px_24px]" />
       <div className="absolute top-20 left-20 w-96 h-96 bg-blue-500/20 rounded-full blur-3xl animate-pulse" />
@@ -121,21 +121,24 @@ const ExoplanetHub = () => {
             About This Tool
           </h3>
           <p className="text-gray-300 leading-relaxed mb-4">
-            Our exoplanet classification system uses state-of-the-art machine learning models trained on data from NASA's Kepler, K2, and TESS missions. 
-            Whether you want to explore individual exoplanet candidates or analyze large datasets, we provide the tools you need.
+            Our exoplanet classification system uses a <strong className="text-blue-400">Stacking Ensemble</strong> combining Random Forest, Gradient Boosting, and AdaBoost classifiers. 
+            Trained on data from NASA's Kepler, K2, and TESS missions, it achieves 96.6% average confidence with 92% of predictions at high confidence levels (≥90%).
           </p>
           <div className="grid grid-cols-1 md:grid-cols-3 gap-4 mt-6">
             <div className="bg-slate-900/50 p-4 rounded-lg border border-slate-700/50">
               <div className="text-blue-400 font-bold text-2xl mb-1">3</div>
               <div className="text-gray-400 text-sm">Mission Datasets</div>
+              <div className="text-xs text-gray-500 mt-1">Kepler • K2 • TESS</div>
             </div>
             <div className="bg-slate-900/50 p-4 rounded-lg border border-slate-700/50">
-              <div className="text-purple-400 font-bold text-2xl mb-1">8</div>
-              <div className="text-gray-400 text-sm">Features Analyzed</div>
+              <div className="text-purple-400 font-bold text-2xl mb-1">96.6%</div>
+              <div className="text-gray-400 text-sm">Average Confidence</div>
+              <div className="text-xs text-gray-500 mt-1">Stacking Ensemble</div>
             </div>
             <div className="bg-slate-900/50 p-4 rounded-lg border border-slate-700/50">
-              <div className="text-green-400 font-bold text-2xl mb-1">95%+</div>
-              <div className="text-gray-400 text-sm">Accuracy Rate</div>
+              <div className="text-green-400 font-bold text-2xl mb-1">92%</div>
+              <div className="text-gray-400 text-sm">High Confidence Rate</div>
+              <div className="text-xs text-gray-500 mt-1">≥90% predictions</div>
             </div>
           </div>
         </div>
