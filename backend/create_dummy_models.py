@@ -78,6 +78,8 @@ def train_and_save_model(file, destination):
     print(f"\n🚀 Entraînement du modèle pour {destination.upper()}")
 
     data = pretraitement(file, destination)
+    feature_names=data.columns.tolist()
+    joblib.dump(feature_names, f"models/{destination}/feature_names.joblib")
     X_train_sc, X_test_sc, y_train, y_test = imputation_smote_scaling(data, destination)
 
     # Définir les modèles de base et le méta-modèle

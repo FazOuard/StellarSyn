@@ -7,7 +7,7 @@ import Index from "./pages/Index";
 import Classifier from "./pages/Classifier";
 import Planets from "./pages/Planets";
 import NotFound from "./pages/NotFound";
-
+import ExoplanetPredictor3D from "./pages/ExoplanetPredictor3D";  
 const queryClient = new QueryClient();
 
 const App = () => (
@@ -20,6 +20,7 @@ const App = () => (
           <Route path="/" element={<Index />} />
           <Route path="/classifier" element={<Classifier />} />
           <Route path="/planets" element={<Planets />} />
+          <Route path="/3d" element={<ExoplanetPredictor3D />} />
           {/* ADD ALL CUSTOM ROUTES ABOVE THE CATCH-ALL "*" ROUTE */}
           <Route path="*" element={<NotFound />} />
         </Routes>

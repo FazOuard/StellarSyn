@@ -92,6 +92,69 @@ class ModelInfoResponse(BaseModel):
     is_loaded: bool
     additional_info: Optional[Dict[str, Any]] = None
 
+
+key_features = {
+    "kepler": ["koi_prad", "koi_period", "koi_teq", "koi_insol",
+               "koi_duration", "koi_time0bk", "koi_depth", "koi_impact"],
+    "k2": ["pl_rade", "pl_orbper", "pl_eqt", "pl_insol",
+           "pl_orbsmax", "pl_orbeccen", "pl_bmasse", "pl_bmassj"],
+    "toi": ["pl_rade", "pl_orbper", "pl_eqt", "pl_insol",
+            "pl_trandurh", "pl_trandep", "st_teff", "st_rad"]
+}
+
+# Exemple simple
+datasets = {
+    "kepler": pd.read_csv("data/KEPLER.csv"),
+    "k2": pd.read_csv("data/K2.csv"),
+    "toi": pd.read_csv("data/TESS.csv")
+}
+
+
+class PredictRequest(BaseModel):
+    destination: str
+    simple_features: Dict[str, float]  # Dict of feature name to value
+
+
+@app.post("/predict-simple")
+async def predict_simple(request: PredictRequest):
+    simple_features = request.simple_features
+    destination = request.destination.lower()
+
+    if destination not in models:
+        raise HTTPException(status_code=400, detail=f"Destination '{destination}' non trouvée")
+
+    bundle = models[destination]
+    feature_names = bundle.get("feature_names")
+    if feature_names is None:
+        raise HTTPException(status_code=500, detail=f"Feature names missing for model {destination}")
+
+    # Construire X_full avec valeur par défaut = 0 si manquante
+    X_full_list = [simple_features.get(f, 0) for f in feature_names]
+    X_full = np.array(X_full_list).reshape(1, -1)
+
+    # --- Imputation ---
+    X_full = bundle["imputer"].transform(X_full)
+
+    # Ajustement automatique si nombre de colonnes différent du scaler
+    n_scaler = getattr(bundle["scaler"], "n_features_in_", X_full.shape[1])
+    if X_full.shape[1] > n_scaler:
+        X_full = X_full[:, :n_scaler]  # couper les colonnes en trop
+    elif X_full.shape[1] < n_scaler:
+        missing = n_scaler - X_full.shape[1]
+        X_full = np.hstack([X_full, np.zeros((X_full.shape[0], missing))])  # compléter avec 0
+
+    # --- Normalisation ---
+    X_full = bundle["scaler"].transform(X_full)
+
+    # Prédiction
+    y_pred = bundle["model"].predict(X_full)[0]
+
+    # Probabilité si disponible
+    prob = None
+    if hasattr(bundle["model"], "predict_proba"):
+        prob = float(bundle["model"].predict_proba(X_full).max())
+
+    return {"destination": destination, "prediction": int(y_pred), "probability": prob}
 # ------------------ Helper Functions ------------------
 def detect_destination(df: pd.DataFrame) -> str:
     """
@@ -141,21 +204,24 @@ async def startup_event():
                 "imputer": joblib.load("models/kepler/imputer.joblib"),
                 "scaler": joblib.load("models/kepler/scaler.joblib"),
                 "X_test_sc": joblib.load("models/kepler/X_test_sc.joblib"),
-                "y_test": joblib.load("models/kepler/y_test.joblib")
+                "y_test": joblib.load("models/kepler/y_test.joblib"),
+                "feature_names": joblib.load("models/kepler/feature_names.joblib")
             },
             "k2": {
                 "model": joblib.load("models/k2/model.joblib"),
                 "imputer": joblib.load("models/k2/imputer.joblib"),
                 "scaler": joblib.load("models/k2/scaler.joblib"),
                 "X_test_sc": joblib.load("models/k2/X_test_sc.joblib"),
-                "y_test": joblib.load("models/k2/y_test.joblib")
+                "y_test": joblib.load("models/k2/y_test.joblib"),
+                "feature_names": joblib.load("models/k2/feature_names.joblib")
             },
             "toi": {
                 "model": joblib.load("models/toi/model.joblib"),
                 "imputer": joblib.load("models/toi/imputer.joblib"),
                 "scaler": joblib.load("models/toi/scaler.joblib"),
                 "X_test_sc": joblib.load("models/toi/X_test_sc.joblib"),
-                "y_test": joblib.load("models/toi/y_test.joblib")
+                "y_test": joblib.load("models/toi/y_test.joblib"),
+                "feature_names": joblib.load("models/toi/feature_names.joblib")
             }
         }
 
@@ -223,19 +289,53 @@ async def model_info(destination: str):
 @app.post("/predict", response_model=PredictionResponse)
 async def predict_endpoint(request: PredictionRequest):
     destination = request.destination.lower()
+
+    # Vérification du modèle
     if destination not in models:
         raise HTTPException(status_code=400, detail=f"Invalid destination: {destination}")
+
     try:
         bundle = models[destination]
+
+        # Conversion en numpy array
         X = np.array(request.features).reshape(1, -1)
+
+        # Vérification du nombre attendu par l'imputer
+        n_imp = getattr(bundle["imputer"], "n_features_in_", None)
+        n_scal = getattr(bundle["scaler"], "n_features_in_", None)
+
+        # Si l'imputer et le scaler n'attendent pas le même nombre de colonnes
+        if n_imp and n_scal and n_imp != n_scal:
+            logger.warning(f"Feature mismatch: imputer={n_imp}, scaler={n_scal}")
+
+        # --- Étape 1 : Imputation ---
         X = bundle["imputer"].transform(X)
+
+        # Ajustement automatique si désalignement
+        if X.shape[1] > n_scal:
+            X = X[:, :n_scal]  # trop de colonnes → on coupe
+        elif X.shape[1] < n_scal:
+            # pas assez de colonnes → on complète avec des zéros
+            missing = n_scal - X.shape[1]
+            X = np.hstack([X, np.zeros((X.shape[0], missing))])
+
+        # --- Étape 2 : Normalisation ---
         X = bundle["scaler"].transform(X)
+
+        # --- Étape 3 : Prédiction ---
         y_pred = bundle["model"].predict(X)
+
+        # --- Étape 4 : Probabilité (si applicable) ---
+        prob = None
         if hasattr(bundle["model"], "predict_proba"):
-            prob = bundle["model"].predict_proba(X).max()
-        else:
-            prob = None
-        return PredictionResponse(destination=destination, prediction=int(y_pred[0]), probability=prob)
+            prob = float(bundle["model"].predict_proba(X).max())
+
+        return PredictionResponse(
+            destination=destination,
+            prediction=int(y_pred[0]),
+            probability=prob
+        )
+
     except Exception as e:
         logger.error(traceback.format_exc())
         raise HTTPException(status_code=500, detail=f"Prediction failed: {str(e)}")
@@ -654,49 +754,84 @@ async def confidence_distribution(destination: str):
     except Exception as e:
         raise HTTPException(status_code=500, detail=str(e))
     
-
-
 @app.get("/shap-plot/{destination}")
 async def shap_plot(destination: str):
-    """
-    Génère et retourne la SHAP summary plot pour le modèle choisi.
-    """
     if destination not in models:
         raise HTTPException(status_code=400, detail=f"Destination '{destination}' non trouvée")
-
+    
     bundle = models[destination]
     model = bundle.get("model")
     X_test = bundle.get("X_test_sc")
-    y_test = bundle.get("y_test")
-
-    if X_test is None or y_test is None:
-        return {"message": "SHAP plot non disponible pour ce modèle (X_test/y_test manquant)"}
-
+    
+    # 🔥 Récupération des vrais noms de features
+    feature_names = bundle.get("feature_names")
+    sns.set_style("darkgrid", {
+        'axes.facecolor': '#ECE0E000',
+        'figure.facecolor': '#ECE0E000',
+        'axes.edgecolor': 'black',
+        'xtick.color': 'white',
+        'ytick.color': 'white',
+        'axes.labelcolor': 'white',
+        'grid.color': 'gray'
+    })
+    if feature_names is None:
+        # Fallback : essayez de les charger depuis un fichier
+        try:
+            feature_names = joblib.load(f"models/{destination}_features.pkl")
+        except:
+            # Dernier recours : utilisez les noms par défaut
+            feature_names = [f"Feature_{i}" for i in range(X_test.shape[1])]
+            print(f" Warning: Using default feature names for {destination}")
+    
+    if X_test is None:
+        return {"message": "SHAP plot non disponible"}
+    
     try:
-        # 1️⃣ Créer un mini-modèle final pour expliquer le final_estimator
-        base_preds = np.column_stack([
-            est.predict_proba(X_test)[:, 1] for name, est in model.named_estimators_.items()
-        ])
-        final_model = model.final_estimator_
-
-        # 2️⃣ Explainer pour final estimator
-        explainer = shap.Explainer(final_model, base_preds)
-        shap_values = explainer(base_preds)
-
-        # 3️⃣ Plot SHAP summary
+        X_sample = shap.sample(X_test, 100) if len(X_test) > 100 else X_test
+        X_background = shap.sample(X_test, 50) if len(X_test) > 50 else X_test
+        
+        def model_predict(X):
+            return model.predict_proba(X)[:, 1]
+        
+        explainer = shap.KernelExplainer(model_predict, X_background)
+        shap_values = explainer.shap_values(X_sample, nsamples=100)
+        
+        # 🎨 Plot avec VRAIS noms
         plt.figure(figsize=(8,6))
-        shap.summary_plot(shap_values, base_preds, show=False)
-        plt.title(f"SHAP Summary Plot - {destination}", fontsize=14)
-
-        # 4️⃣ Sauvegarde image temporaire
+        
+        
+        shap.summary_plot(
+            shap_values, 
+            X_sample, 
+            show=False, 
+            plot_type="bar",
+            feature_names=feature_names,  # 🔥 VRAIS NOMS ICI
+            max_display=15,
+            color='#60a5fa'
+        )
+        
+        
+        plt.xlabel('Mean SHAP Value (Impact on Prediction)', fontsize=12, color='white')
+        plt.tight_layout()
+        
         shap_path = f"shap_{destination}.png"
-        plt.savefig(shap_path, bbox_inches='tight')
+        plt.savefig(shap_path, bbox_inches='tight', dpi=150, facecolor='#0f172a')
         plt.close()
-
-        # 5️⃣ Retourne l'image
+        
         with open(shap_path, "rb") as f:
             image_bytes = f.read()
-        return Response(content=image_bytes, media_type="image/png", headers={"Access-Control-Allow-Origin": "*"})
-
+        
+        import os
+        os.remove(shap_path)
+        
+        return Response(
+            content=image_bytes,
+            media_type="image/png",
+            headers={"Access-Control-Allow-Origin": "*"}
+        )
+        
     except Exception as e:
+        print(f" SHAP Error: {str(e)}")
+        import traceback
+        traceback.print_exc()
         raise HTTPException(status_code=500, detail=str(e))

@@ -1,5 +1,5 @@
 import { useState, useEffect } from "react";
-import { ArrowLeft, Loader2, Sparkles, Upload, CheckCircle, XCircle, AlertCircle, TrendingUp, BarChart3 } from "lucide-react";
+import { ArrowLeft, Loader2, Sparkles, Upload, CheckCircle,Info, XCircle,Brain, AlertCircle, TrendingUp, BarChart3 } from "lucide-react";
 import ShapExplain from "./ShapExplain"; 
 
 const Classifier = () => {
@@ -239,7 +239,7 @@ useEffect(() => {
         <div className="max-w-5xl mx-auto">
           <div className="text-center mb-12">
             <h1 className="text-5xl font-bold mb-4 bg-gradient-to-r from-blue-400 to-purple-400 bg-clip-text text-transparent">
-              Exoplanet Classifier
+              Exoplanet Detector
             </h1>
             <p className="text-xl text-gray-400">
               Upload a CSV/TSV dataset to predict exoplanet candidates
@@ -259,10 +259,10 @@ useEffect(() => {
                   disabled={isClassifying}
                   className="w-full px-4 py-3 bg-slate-800 border border-slate-700 rounded-lg text-white focus:outline-none focus:ring-2 focus:ring-blue-500 disabled:opacity-50"
                 >
-                  <option value="auto">🎯 Auto-detect (Recommended)</option>
-                  <option value="kepler">🔭 Kepler Mission</option>
-                  <option value="k2">🌟 K2 Mission</option>
-                  <option value="toi">🛰️ TESS (TOI)</option>
+                  <option value="auto">Auto-detect (Recommended)</option>
+                  <option value="kepler">Kepler Mission</option>
+                  <option value="k2">K2 Mission</option>
+                  <option value="toi">TESS (TOI)</option>
                 </select>
                 <p className="text-xs text-gray-500 mt-2">
                   Auto-detect will analyze your file and choose the best model automatically
@@ -317,7 +317,7 @@ useEffect(() => {
                 ) : (
                   <>
                     <Sparkles className="h-5 w-5" />
-                    Classify Dataset
+                    Detect Exoplanet
                   </>
                 )}
               </button>
@@ -405,40 +405,68 @@ useEffect(() => {
                 </div>
               </div>
 
-              {/* ROC Curve Display */}
-              <div className="p-6 bg-slate-900/50 rounded-lg mt-6 text-center">
-                <h3 className="text-lg font-semibold text-white mb-4">ROC curve</h3>
-                {isLoadingRoc ? (
-                  <div className="flex justify-center items-center text-white">
-                    <Loader2 className="h-6 w-6 animate-spin mr-2" /> Download...
-                  </div>
-                ) : rocImageUrl ? (
-                  <img
-                    src={rocImageUrl}
-                    alt="ROC Curve"
-                    style={{ maxWidth: "100%", height: "auto", borderRadius: "8px" }}
-                  />
-                ) : (
-                  <p className="text-gray-400">The Roc curve will appear after classification.</p>
-                )}
-              </div>
+              <div className="bg-gradient-to-r from-blue-600/20 to-purple-600/20 rounded-lg p-6 border border-blue-500/30">
+                      <div className="flex items-start gap-4">
+                        <div className="p-3 bg-blue-500/20 rounded-lg">
+                          <Brain className="h-8 w-8 text-blue-400" />
+                        </div>
+                        <div className="flex-1">
+                          <h2 className="text-2xl font-bold text-white mb-2">
+                            Statistics
+                          </h2>
+                          <p className="text-gray-300 text-sm leading-relaxed">
+                            Analyzing <span className="text-blue-400 font-semibold">model performance</span> helps assess its reliability. 
+                            The <span className="text-blue-400 font-semibold">ROC curve</span> visualizes the trade-off between sensitivity and specificity, 
+                            while the <span className="text-blue-400 font-semibold">Precision-Recall curve</span> highlights the balance between precision and recall for different thresholds. 
+                            The <span className="text-blue-400 font-semibold">Model Confidence</span> plot shows the probability distribution of predictions across classes.
+                          </p>
 
-              {/* PR Curve */}
-              <div className="p-6 bg-slate-900/50 rounded-lg mt-6 text-center">
-                <h3 className="text-lg font-semibold text-white mb-4">Precision-Recall curve</h3>
-                {isLoadingPr ? (
-                  <div className="flex justify-center items-center text-white">
-                    <Loader2 className="h-6 w-6 animate-spin mr-2" /> Download...
-                  </div>
-                ) : prImageUrl ? (
-                  <img src={prImageUrl} alt="PR Curve" style={{ maxWidth: "100%", height: "auto", borderRadius: "8px" }} />
-                ) : (
-                  <p className="text-gray-400">The PR curve will appear after classification.</p>
-                )}
+
+                        </div>
+                      </div>
+                    </div>   
+                
+              {/* ROC & PR Curves côte à côte */}
+              <div className="flex flex-col md:flex-row gap-6 mt-6">
+                {/* ROC Curve */}
+                <div className="flex-1 p-6 bg-slate-900/50 rounded-lg text-center">
+                  <h3 className="text-lg font-semibold text-white mb-4">ROC curve</h3>
+                  {isLoadingRoc ? (
+                    <div className="flex justify-center items-center text-white">
+                      <Loader2 className="h-6 w-6 animate-spin mr-2" /> Download...
+                    </div>
+                  ) : rocImageUrl ? (
+                    <img
+                      src={rocImageUrl}
+                      alt="ROC Curve"
+                      style={{ maxWidth: "100%", height: "auto", borderRadius: "8px" }}
+                    />
+                  ) : (
+                    <p className="text-gray-400">The ROC curve will appear after classification.</p>
+                  )}
+                </div>
+
+                {/* PR Curve */}
+                <div className="flex-1 p-6 bg-slate-900/50 rounded-lg text-center">
+                  <h3 className="text-lg font-semibold text-white mb-4">Precision-Recall curve</h3>
+                  {isLoadingPr ? (
+                    <div className="flex justify-center items-center text-white">
+                      <Loader2 className="h-6 w-6 animate-spin mr-2" /> Download...
+                    </div>
+                  ) : prImageUrl ? (
+                    <img
+                      src={prImageUrl}
+                      alt="PR Curve"
+                      style={{ maxWidth: "100%", height: "auto", borderRadius: "8px" }}
+                    />
+                  ) : (
+                    <p className="text-gray-400">The PR curve will appear after classification.</p>
+                  )}
+                </div>
               </div>
 
               {/* model confidence yes*/}
-              <div className="p-6 bg-slate-900/50 rounded-lg mt-6 text-center">
+              <div className="p-6 bg-slate-900/50 rounded-lg mt-6 text-center w-full md:w-3/4 lg:w-1/2 mx-auto">
                 <h3 className="text-lg font-semibold text-white mb-4">Model confidence: probability of distribution</h3>
                 {isLoadingF1 ? (
                   <div className="flex justify-center items-center text-white">
@@ -447,14 +475,28 @@ useEffect(() => {
                 ) : f1ImageUrl ? (
                   <img
                     src={f1ImageUrl}
-                    alt="F1 Curve"
+                    alt="Model confidence Curve"
                     style={{ maxWidth: "100%", height: "auto", borderRadius: "8px" }}
                   />
                 ) : (
-                  <p className="text-gray-400">The F1 curve will appear after classification.</p>
+                  <p className="text-gray-400">The Model confidence curve will appear after classification.</p>
                 )}
               </div>
 
+              <div className="mt-6 p-4 bg-slate-800/30 rounded-lg border border-slate-700/30">
+                <h4 className="text-white font-semibold mb-2 flex items-center gap-2">
+                  <Info className="h-4 w-4 text-blue-400" />
+                  How to Read The Charts
+                </h4>
+                <ul className="text-gray-300 text-sm space-y-1 ml-6 list-disc">
+                  <li><span className="font-semibold">ROC Curve:</span> The closer the curve follows the top-left corner, the better the model distinguishes between classes.</li>
+                  <li><span className="font-semibold">Precision-Recall Curve:</span> Higher area under the curve indicates better precision for high recall values, useful for imbalanced datasets.</li>
+                  <li><span className="font-semibold">Model Confidence:</span> Peaks near 1 indicate confident predictions; peaks near 0.5 indicate uncertainty.</li>
+                </ul>
+              </div>
+
+              <ShapExplain destination={stats.detectedDestination || "kepler"} />
+            
 
             </div>
           )}
