@@ -23,18 +23,19 @@ const App = () => {
         <Toaster />
         <Sonner />
         <BrowserRouter>
-        <NavBar />
+        
           <Routes>
             {/* Route Home en plein écran sans navbar/footer */}
             
-            <Route path="/" element={<Home />} />
+            
             {/* Autres routes avec layout */}
             <Route path="/*" element={
               <div className="flex flex-col min-h-screen">
-                
+                <NavBar />
                 <main className="flex-1 overflow-hidden">
+                  
                   <Routes>
-                    
+                    <Route path="/" element={<Home />} />
                     <Route path="/classifier" element={<Classifier />} />
                     <Route path="/satellites" element={<Satellites />} />
                     <Route path="/planets" element={<Planets />} />

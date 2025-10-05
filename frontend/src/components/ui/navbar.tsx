@@ -11,7 +11,7 @@ const NavBar = () => {
         </div>
         <div className="flex gap-8 text-sm text-white/80">
           <Link to="/" className="hover:text-white transition-colors text-lg">
-            Discover
+            Home
           </Link>
           <Link to="/satellites" className="hover:text-white transition-colors text-lg">
             Satellites
@@ -20,7 +20,7 @@ const NavBar = () => {
             Planets
           </Link>
           <Link to="/choose" className="hover:text-white transition-colors text-lg">
-            Research
+            Predict
           </Link>
         </div>
       </div>
