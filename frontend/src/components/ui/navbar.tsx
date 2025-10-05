@@ -19,7 +19,7 @@ const NavBar = () => {
           <Link to="/planets" className="hover:text-white transition-colors text-lg">
             Planets
           </Link>
-          <Link to="/classifier" className="hover:text-white transition-colors text-lg">
+          <Link to="/choose" className="hover:text-white transition-colors text-lg">
             Research
           </Link>
         </div>

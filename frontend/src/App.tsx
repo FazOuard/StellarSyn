@@ -11,6 +11,7 @@ import NotFound from "./pages/NotFound";
 import ExoplanetPredictor3D from "./pages/ExoplanetPredictor3D";
 import Satellites from "./pages/Satellites";
 import Home from "./pages/Home";
+import ExoplanetHub from "./pages/ExoplanetHub";
 const queryClient = new QueryClient();
 
 const App = () => (
@@ -27,6 +28,7 @@ const App = () => (
           <Route path="/satellites" element={<Satellites />} />
           <Route path="/planets" element={<Planets />} />
           <Route path="/3d" element={<ExoplanetPredictor3D />} />
+          <Route path="/choose" element={<ExoplanetHub />} />
           {/* ADD ALL CUSTOM ROUTES ABOVE THE CATCH-ALL "*" ROUTE */}
           <Route path="*" element={<NotFound />} />
         </Routes>

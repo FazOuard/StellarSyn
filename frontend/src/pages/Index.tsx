@@ -64,7 +64,7 @@ const Index = () => {
               PLANETS
             </button>
             <button
-              onClick={() => navigate("/classifier")}
+              onClick={() => navigate("/choose")}
               className="hover:text-white transition-colors text-lg"
             >
               RESEARCH
