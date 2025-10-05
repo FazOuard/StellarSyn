@@ -50,7 +50,7 @@ const Satellites = () => {
   ];
 
   return (
-    <div className="flex-1 bg-black relative overflow-hidden">
+    <div className="flex-1 bg-black relative overflow-hidden overflow-y-auto">
       {/* Background grid */}
       <div className="absolute inset-0 bg-[url('/grid.svg')] opacity-5" />
 
