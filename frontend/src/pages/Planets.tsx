@@ -69,34 +69,9 @@ const Planets = () => {
   ];
 
   return (
-    <div className="min-h-screen bg-black relative overflow-hidden">
+    <div className="flex-1 bg-black relative overflow-hidden">
       {/* Starfield background */}
       <div className="absolute inset-0 bg-[url('/grid.svg')] opacity-5" />
-
-      {/* Navigation */}
-      <nav className="relative z-10 container mx-auto px-8 py-8">
-        <div className="flex justify-between items-center">
-          <button
-            onClick={() => navigate("/")}
-            className="flex items-center space-x-3 hover:opacity-80 transition-opacity"
-          >
-            <span className="text-xl font-bold tracking-wider text-white">
-              EXOPLANET EXPLORER
-            </span>
-          </button>
-          <div className="flex gap-8 text-sm text-white/80">
-            <button onClick={() => navigate("/")} className="hover:text-white transition-colors">DISCOVER</button>
-            <button className="text-white">PLANETS</button>
-            <button className="hover:text-white transition-colors">MISSIONS</button>
-            <button
-              onClick={() => navigate("/classifier")}
-              className="hover:text-white transition-colors"
-            >
-              RESEARCH
-            </button>
-          </div>
-        </div>
-      </nav>
 
       {/* Carousel Section */}
       <section className="relative z-10 container mx-auto px-8 py-12">
